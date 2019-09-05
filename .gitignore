@@ -1,0 +1,18 @@
+.idea
+.gradle
+build
+conf
+website
+*.iml
+*.ipr
+*.iws
+*.class
+out
+build
+target
+# Vim Backup/Swap Files
+*~
+.swp
+.*.swp
+/.settings/
+/LICENSE.txt
