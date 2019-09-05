@@ -1,4 +1,5 @@
 rootProject.name = 'hotpothttp'
 include 'hotpothttp-core'
 include 'hotpothttp-cookie'
+include 'hotpothttp-router'
 
