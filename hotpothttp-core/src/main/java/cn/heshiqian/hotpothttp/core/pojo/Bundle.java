@@ -6,8 +6,11 @@ public class Bundle {
     public static final String REQUEST ="request";
     public static final String RESPONSE="response";
 
-    public enum Type{
-        SOCKET,REQUEST,RESPONSE
+    public static class Type{
+        String spName;
+        public Type(String name){
+            spName=name;
+        }
     }
 
     Object o;

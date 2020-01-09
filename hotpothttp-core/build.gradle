@@ -17,3 +17,8 @@ dependencies {
 tasks.withType(JavaCompile) {
     options.encoding = "UTF-8"
 }
+jar{
+    manifest{
+        attributes 'Main-Class':'cn.heshiqian.hotpothttp.core.HotPotHttpApplicationStarter'
+    }
+}

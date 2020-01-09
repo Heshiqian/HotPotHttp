@@ -2,17 +2,21 @@ package cn.heshiqian.hotpothttp.core.proxy;
 
 import cn.heshiqian.hotpothttp.core.addtion.HotPotTools;
 import cn.heshiqian.hotpothttp.core.addtion.Log;
+import cn.heshiqian.hotpothttp.core.clazz.LibClassLoader;
 
+import java.io.File;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.Map;
-import java.util.Objects;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.*;
 
 public final class PrivateProxyManage implements ProxyManageInterface{
 
     private static ClassLoader systemClassLoader;
+    private static ClassLoader libClassLoader;
+    private static ClassLoader contextClassLoader;
 
     private PrivateProxyManage(){}
     private static class PPMHolder{
@@ -23,6 +27,7 @@ public final class PrivateProxyManage implements ProxyManageInterface{
     }
     static {
         systemClassLoader = ClassLoader.getSystemClassLoader();
+        contextClassLoader = Thread.currentThread().getContextClassLoader();
     }
 
     private LinkedList<Object> instance = new LinkedList<>();
@@ -33,16 +38,17 @@ public final class PrivateProxyManage implements ProxyManageInterface{
         if (className==null||className.length()==0)
             throw new IllegalArgumentException("class name is null or empty");
         try {
-            Class<?> loadClass = systemClassLoader.loadClass(className);
+            Class<?> loadClass;
+            try{
+                //先找默认loader
+                loadClass = systemClassLoader.loadClass(className);
+            }catch (ClassNotFoundException e){
+                //找不到再从lib中找
+                loadClass = libClassLoader.loadClass(className);
+            }
             Constructor constructor = loadClass.getConstructor();
             obj = constructor.newInstance();
-        } catch (NoSuchMethodException e) {
-            e.printStackTrace();
-        } catch (IllegalAccessException e) {
-            e.printStackTrace();
-        } catch (InstantiationException e) {
-            e.printStackTrace();
-        } catch (InvocationTargetException e) {
+        } catch (NoSuchMethodException | IllegalAccessException | InstantiationException | InvocationTargetException e) {
             e.printStackTrace();
         }
         //添加进实例化管理
@@ -57,9 +63,7 @@ public final class PrivateProxyManage implements ProxyManageInterface{
         Object o=null;
         try {
             o = c.newInstance();
-        } catch (InstantiationException e) {
-            e.printStackTrace();
-        } catch (IllegalAccessException e) {
+        } catch (InstantiationException | IllegalAccessException e) {
             e.printStackTrace();
         }
         return o;
@@ -72,13 +76,7 @@ public final class PrivateProxyManage implements ProxyManageInterface{
         try {
             Constructor constructor = c.getConstructor();
             o = constructor.newInstance();
-        } catch (InstantiationException e) {
-            e.printStackTrace();
-        } catch (IllegalAccessException e) {
-            e.printStackTrace();
-        } catch (NoSuchMethodException e) {
-            e.printStackTrace();
-        } catch (InvocationTargetException e) {
+        } catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
             e.printStackTrace();
         }
         if (o!=null) instance.add(o);
@@ -87,7 +85,19 @@ public final class PrivateProxyManage implements ProxyManageInterface{
 
 
     public Class onlyGetClass(String className) throws ClassNotFoundException{
-        return Class.forName(className);
+        Class<?> loadClass;
+        try{
+            loadClass = Class.forName(className);
+        }catch (ClassNotFoundException e){
+            try{
+                //先找默认loader
+                loadClass = systemClassLoader.loadClass(className);
+            }catch (ClassNotFoundException ee){
+                //找不到再从lib中找
+                loadClass = libClassLoader.loadClass(className);
+            }
+        }
+        return loadClass;
     }
 
     @Override
@@ -155,5 +165,27 @@ public final class PrivateProxyManage implements ProxyManageInterface{
     @Override
     public <T> T addClass(Object instance, Class<T> cls) {
         return null;
+    }
+
+    @Override
+    public void setLibs(List<File> libs) {
+        ArrayList<URL> urls=new ArrayList<>();
+        for (File lib : libs) {
+            //加入到LibClassLoader
+            URL url = null;
+            try {
+                url = lib.toURI().toURL();
+            } catch (MalformedURLException e) {
+                e.printStackTrace();
+                Log.err(lib.getAbsolutePath()+" load error.");
+            }
+            if (url!=null){
+                urls.add(url);
+                //如果Jar中存在MANIFEST.MF则去读取MANIFEST指定的字段进行
+
+
+            }
+        }
+        libClassLoader=new LibClassLoader(urls);
     }
 }

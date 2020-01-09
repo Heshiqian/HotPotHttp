@@ -1,5 +1,8 @@
 package cn.heshiqian.hotpothttp.core.proxy;
 
+import java.io.File;
+import java.util.List;
+
 public interface ProxyManageInterface {
 
     /**
@@ -22,4 +25,5 @@ public interface ProxyManageInterface {
     <T>T addClass(Object instance,Class<T> cls);
 
 
+    void setLibs(List<File> libs);
 }

@@ -128,6 +128,7 @@ public final class FileCache {
         while ((len=fis.read(buff))!=-1){
             bos.write(buff,0,len);
         }
+        fis.close();
         cacheFilePojo.setPayload(bos.toByteArray());
         return cacheFilePojo;
     }

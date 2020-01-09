@@ -6,8 +6,12 @@ import cn.heshiqian.hotpothttp.core.addtion.HotpothttpUncaughtExceptionHandler;
 import cn.heshiqian.hotpothttp.core.addtion.Log;
 import cn.heshiqian.hotpothttp.core.addtion.ThreadUnCatchHandle;
 import cn.heshiqian.hotpothttp.core.config.Configuration;
+import cn.heshiqian.hotpothttp.core.exception.EngineInitException;
 import cn.heshiqian.hotpothttp.core.factory.RequestFrontFactory;
 import cn.heshiqian.hotpothttp.core.factory.ResponseBackFactory;
+import cn.heshiqian.hotpothttp.core.plugin.Creater;
+import cn.heshiqian.hotpothttp.core.plugin.PluginManager;
+import cn.heshiqian.hotpothttp.core.pojo.Bundle;
 import cn.heshiqian.hotpothttp.core.request.Request;
 import cn.heshiqian.hotpothttp.core.request.RequestProcessor;
 import cn.heshiqian.hotpothttp.core.plugin.Plugins;
@@ -16,11 +20,10 @@ import cn.heshiqian.hotpothttp.core.pojo.SimplePluginHolder;
 import cn.heshiqian.hotpothttp.core.response.Response;
 import cn.heshiqian.hotpothttp.core.response.ResponseProcessor;
 
+import java.io.File;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public final class Proxy {
@@ -36,10 +39,12 @@ public final class Proxy {
     private static final String DEAFULR_FRONT_FACTORY = RequestFrontFactory.class.getTypeName();
     private static final String DEAFULR_BACK_FACTORY = ResponseBackFactory.class.getTypeName();
 
-    private PrivateProxyManage proxyManage = PrivateProxyManage.getInstance();
-
-    private static Proxy proxy = new Proxy();
     private static final Map<ProxyTarget, LinkedList<SimplePluginHolder>> proxyPluginList = new HashMap<>();
+
+    private static final Proxy proxy = new Proxy();
+    private static final PluginManager pluginManager = new PluginManager();
+
+    private PrivateProxyManage proxyManage = PrivateProxyManage.getInstance();
 
     //请求前置控件类名
     private String RFFClassStr;
@@ -48,6 +53,8 @@ public final class Proxy {
     public static Proxy getInstance() {
         return proxy;
     }
+
+    public static PluginManager getPluginManager() { return pluginManager; }
 
     private static ProxyDaemonThread daemon;
 
@@ -79,6 +86,16 @@ public final class Proxy {
         thread.start();
     }
 
+    public static void scanLib(){
+        String libDirStr = Configuration.getArg(Configuration.LIB_DIR, String.class);
+        //如果lib目录不存在就直接跳过此步骤
+        if (libDirStr==null) return;
+        File libFile = new File(libDirStr);
+        List<File> libs = HotPotTools.getLibs(libFile);
+        System.out.println("libs = " + libs);
+        PrivateProxyManage.getInstance().setLibs(libs);
+    }
+
     public void preInitAllClass(){
 
         String starterClassStr = Configuration.getArg(Configuration.START_CLASS, String.class);
@@ -95,35 +112,50 @@ public final class Proxy {
         }
 
         Method[] starterMethods = startClass.getDeclaredMethods();
-
+        Log.debug("Start Instance Plugin...");
         for (Method method:starterMethods){
             Plugins plugins = method.getAnnotation(Plugins.class);
-            if (plugins==null)continue;
-            Class plugin = plugins.plugin();
-            String pluginName = plugins.pluginName();
-            ProxyTarget target = plugins.target();
-            HotPotTools.Timer.startTimer();
-            Object o;
-            try {
-                o = proxyManage.loadClassButNoAddIntoList(plugin);
-            } catch (Exception e) {
-                Log.err("class:"+plugin.getTypeName()+" create error!");
-                Log.err(HotPotTools.printStackTrace(e.getStackTrace()));
-                HotPotTools.Timer.resetTimer();
-                continue;
+            Creater creater = method.getAnnotation(Creater.class);
+            if (plugins!=null){
+                Class plugin = plugins.plugin();
+                String pluginName = plugins.pluginName();
+                ProxyTarget target = plugins.target();
+                HotPotTools.Timer.startTimer();
+                Object o;
+                try {
+                    o = proxyManage.loadClassButNoAddIntoList(plugin);
+                } catch (Exception e) {
+                    Log.err("class:"+plugin.getTypeName()+" create error!");
+                    Log.err(HotPotTools.printStackTrace(e.getStackTrace()));
+                    HotPotTools.Timer.resetTimer();
+                    continue;
+                }
+                Log.debug("load class ["+plugin.getTypeName()+"] use time:"+HotPotTools.Timer.stopTimerAndGetTime());
+
+                SimplePluginHolder simplePluginHolder = new SimplePluginHolder();
+                simplePluginHolder.setInstance(o);
+                simplePluginHolder.setPluginClass(plugin);
+                simplePluginHolder.setPluginName(pluginName);
+
+                //如果对应的list没有实例化，实例化后返回
+                LinkedList<SimplePluginHolder> list = proxyPluginList.computeIfAbsent(target, k -> new LinkedList<>());
+
+                list.add(simplePluginHolder);
+            }else if (creater!=null){
+                Class target = creater.target();
+                try {
+//                    Object invoke = method.invoke(null);
+                    Log.debug("Do Constructor:"+creater.target().getTypeName());
+                    @SuppressWarnings("unchecked")
+                    Method proxy = target.getMethod("proxy", Map.class);
+                    Object o = target.newInstance();
+                    HashMap<Bundle.Type, Bundle> map = new HashMap<>();
+                    proxy.invoke(o,map);
+                } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException | InstantiationException e) {
+                    throw new EngineInitException(e);
+                }
+
             }
-            Log.debug("load class ["+plugin.getTypeName()+"] use time:"+HotPotTools.Timer.stopTimerAndGetTime());
-
-            SimplePluginHolder simplePluginHolder = new SimplePluginHolder();
-            simplePluginHolder.setInstance(o);
-            simplePluginHolder.setPluginClass(plugin);
-            simplePluginHolder.setPluginName(pluginName);
-
-            //如果对应的list没有实例化，实例化后返回
-            LinkedList<SimplePluginHolder> list = proxyPluginList.computeIfAbsent(target, k -> new LinkedList<>());
-
-            list.add(simplePluginHolder);
-
         }
         Log.debug(HotPotTools.getMapLineByLine(proxyPluginList,"代理列表"));
 
@@ -219,6 +251,10 @@ public final class Proxy {
         return proxyManage.getInstance(RBFClassStr, ResponseBackFactory.class);
     }
 
+    public Map<ProxyTarget, LinkedList<SimplePluginHolder>> getProxyPluginList() {
+        return proxyPluginList;
+    }
+
     public void thoughtRequest(Request request) {
         LinkedList<SimplePluginHolder> list = proxyPluginList.get(ProxyTarget.REQUEST);
         if (list==null) return;
@@ -244,6 +280,27 @@ public final class Proxy {
     }
 
     public void thoughtResponse(Response response) {
+        LinkedList<SimplePluginHolder> list = proxyPluginList.get(ProxyTarget.RESPONSE);
+        if (list==null) return;
+        Iterator<SimplePluginHolder> iterator = list.iterator();
+        while (iterator.hasNext()){
+            SimplePluginHolder holder = iterator.next();
+            Object instance = holder.getInstance();
+            try {
+                Method process = instance.getClass().getMethod("process", Response.class);
+                Boolean invoke = (Boolean) process.invoke(instance, response);
+                if (invoke) break;
+            } catch (NoSuchMethodException nsme){
+                Log.err("cannot invoke plugin, because this plugin is not class:[cn.heshiqian.hotpothttp.core.plugin.abs.ResponsePlugin] subclass");
+                Log.err("plugin name:'"+holder.getPluginName()+"' plugin class:["+holder.getPluginClass().getTypeName()+"]");
+            } catch (Exception e){
+                Log.err("plugin run error.");
+                Log.err("in plugin:'"+holder.getPluginName()+"' class:["+holder.getPluginClass().getTypeName()+"]");
+                Log.err("======== stack trace =========");
+                e.printStackTrace();
+                Log.err("==============================");
+            }
+        }
 
     }
 

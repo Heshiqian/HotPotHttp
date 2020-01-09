@@ -4,12 +4,14 @@ import cn.heshiqian.hotpothttp.core.addtion.CommandLineParser;
 import cn.heshiqian.hotpothttp.core.addtion.Log;
 import cn.heshiqian.hotpothttp.core.config.Configuration;
 import cn.heshiqian.hotpothttp.core.exception.EngineFireErrorExcption;
+import cn.heshiqian.hotpothttp.core.proxy.PrivateProxyManage;
 import cn.heshiqian.hotpothttp.core.proxy.Proxy;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Method;
 import java.net.InetAddress;
 import java.util.HashMap;
 import java.util.Map;
@@ -19,7 +21,7 @@ public class HotPotHttpApplicationStarter {
 
     /**
      * @deprecated field no longer support
-     * @use Configuration.getArg("debug",Boolean.class)
+     * use Configuration.getArg("debug",Boolean.class)
      */
     private static final boolean DEBUG=false;
     //Starter Class(Clazz) -> SCLZ
@@ -27,6 +29,7 @@ public class HotPotHttpApplicationStarter {
 
     private static final String WORKER_FOLDER="WORKER_FOLDER_KEY";
     private static final String CONF_FOLDER="CONF_FOLDER_KEY";
+    private static final String LIB_FOLDER="LIB_FOLDER_KEY";
 
     private static final Configuration configuration = Configuration.getInstance();
 
@@ -49,7 +52,31 @@ public class HotPotHttpApplicationStarter {
 //        System.out.println("args = [" + argsmap.toString() + "]");
 //        HotPotHttpOrigin.init(argsmap);
         Proxy.proxy();
-        $$FIRE_THE_ENGINE$$();
+        Proxy.scanLib();
+        if (!isGUIMode()) {
+            $$FIRE_THE_ENGINE$$();
+        }else {
+            try {
+                invokeGui();
+            } catch (Exception e) {
+                e.printStackTrace();
+                Log.err("GUI mode start failure. don't add [--gui] args and try again.");
+                shutdown();
+            }
+        }
+    }
+
+    private static void invokeGui() throws Exception{
+        Class<?> guiStarter;
+        guiStarter = PrivateProxyManage.getInstance().onlyGetClass("cn.heshiqian.hotpothttp.gui.GUI");
+        Object starter = guiStarter.newInstance();
+        Method gui = guiStarter.getMethod("gui", Map.class);
+        gui.invoke(starter,Configuration.getInstance().getArgMaps());
+    }
+
+    private static boolean isGUIMode() {
+        String gui = Configuration.getArg(Configuration.COMMAND_LINE_GUI_MODE, String.class);
+        return gui!=null && gui.equals("GUI");
     }
 
     private static void parseArgs(String[] args) {
@@ -67,6 +94,7 @@ public class HotPotHttpApplicationStarter {
         try {
             File websiteFolder = new File(userDir + File.separator + "website");
             File confFolder = new File(userDir + File.separator + "conf");
+            File libFolder = new File(userDir + File.separator + "lib");
             if (!websiteFolder.exists()) {
                 Log.log("create website folder... path:"+websiteFolder.getAbsolutePath());
                 boolean mkdir = websiteFolder.mkdir();
@@ -80,11 +108,18 @@ public class HotPotHttpApplicationStarter {
                 boolean mkdir = confFolder.mkdir();
                 if (!mkdir){
                     Log.err("create conf folder failure. maybe no access permission!");
-                    Log.err("will use internal html page, some function will not be used.");
+                }
+            }
+            if (!libFolder.exists()){
+                Log.log("create lib folder... path:"+libFolder.getAbsolutePath());
+                boolean mkdir = libFolder.mkdir();
+                if (!mkdir){
+                    Log.err("create lib folder failure. maybe no access permission!");
                 }
             }
             properties.setProperty(WORKER_FOLDER,websiteFolder.getAbsolutePath());
             properties.setProperty(CONF_FOLDER,confFolder.getAbsolutePath());
+            properties.setProperty(LIB_FOLDER,libFolder.getAbsolutePath());
             if (file.exists()) {
                 inputStream = new FileInputStream(file);
             }else {

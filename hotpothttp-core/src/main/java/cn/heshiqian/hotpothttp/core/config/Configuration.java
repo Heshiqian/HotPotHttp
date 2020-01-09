@@ -23,6 +23,7 @@ public final class Configuration {
     public static final String USER_DIR = "user.dir";
     public static final String WOKRER_DIR = "worker.dir";
     public static final String CONF_DIR="conf.dir";
+    public static final String LIB_DIR="lib.dir";
     public static final String NIO_MODE = "core.mode.nio";
     public static final String NORMAL_MODE = "core.mode.normal";
     public static final String IP = "core.ip";
@@ -44,6 +45,7 @@ public final class Configuration {
     public static final String COMMAND_LINE_HTTP_PORT="--port";
     public static final String COMMAND_LINE_HTTP_IP="--ip";
     public static final String COMMAND_LINE_WORKER_PATH="--w";
+    public static final String COMMAND_LINE_GUI_MODE="--gui";
 
     public static <T>T getArg(String paramKey,Class<T> type) {
         Object o = argMaps.get(paramKey);
@@ -96,6 +98,7 @@ public final class Configuration {
         argMaps.put(USER_DIR,userDir);
         argMaps.put(WOKRER_DIR,argMaps.get("WORKER_FOLDER_KEY"));
         argMaps.put(CONF_DIR,argMaps.get("CONF_FOLDER_KEY"));
+        argMaps.put(LIB_DIR,argMaps.get("LIB_FOLDER_KEY"));
         argMaps.put(NORMAL_MODE,true);
 
         convertCommandLineArgs();
@@ -135,7 +138,7 @@ public final class Configuration {
     }
 
     public HashMap<String, Object> getArgMaps() {
-        if ((Boolean) argMaps.get("debug"))
+        if (Boolean.parseBoolean((String) argMaps.get("debug")))
             return argMaps;
         else
             return null;

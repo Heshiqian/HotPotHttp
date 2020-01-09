@@ -34,7 +34,8 @@ public class ResponseBackFactory implements ResponseProcessor {
         Package<CacheFilePojo> aPackage = response.getPackage(hphResponsePT);
         CacheFilePojo cacheFilePojo = aPackage.getOwnObj();
         String contentType = headers.get("Content-Type");
-        headers.put("Content-Type",contentType+"; "+characterEncoding);
+//        headers.put("Content-Type",contentType+"; "+characterEncoding);
+        headers.put("Content-Type",contentType);
         HttpSendImpl httpSend = new HttpSendImpl();
         httpSend.setHttp("HTTP/1.1 "+response.getStatus()+" \r\n");
         httpSend.setHeader(convertMapToHeader(headers)+"\r\n");

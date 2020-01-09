@@ -28,6 +28,12 @@ public class CommandLineParser {
             if (isOutOfArrayRange(args,argIndex)) break;
             String someTag = args[argIndex];
             switch (someTag){
+
+                case Configuration.COMMAND_LINE_GUI_MODE:{
+                    map.put(Configuration.COMMAND_LINE_GUI_MODE,"GUI");
+                    return map;
+                }
+
                 case Configuration.COMMAND_LINE_HTTP_PORT:{
                     if (!isOutOfArrayRange(args,argIndex+1)){
                         String portStr = args[argIndex + 1];

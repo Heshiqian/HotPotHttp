@@ -2,6 +2,7 @@ package cn.heshiqian.hotpothttp.core.addtion;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileFilter;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -81,6 +82,21 @@ public final class HotPotTools {
             }
         }
         return false;
+    }
+
+    public static List<File> getLibs(File folder){
+        if(!folder.isDirectory())
+            throw new IllegalArgumentException("路径："+folder.getAbsolutePath()+" 不是一个文件夹！");
+        ArrayList<File> list = new ArrayList<>();
+        File[] files = folder.listFiles(new FileFilter() {
+            @Override
+            public boolean accept(File pathname) {
+                return pathname.getName().endsWith(".jar")&&pathname.isFile();
+            }
+        });
+        if (files==null)return list;
+        list.addAll(Arrays.asList(files));
+        return list;
     }
 
     public static File findFile(String beginPath,String targetName,boolean isDeep){
@@ -211,6 +227,15 @@ public final class HotPotTools {
             long now = System.currentTimeMillis();
             System.out.println("[Timer] "+tag+" <- this progress run time:"+(now-startTime)+"ms");
             startTime=0;
+        }
+
+        public static String stopTimerAndGetString(String tag){
+            if (startTime==0)
+                throw new IllegalStateException("not start timer, please call startTimer() first!");
+            long now = System.currentTimeMillis();
+            String s = "[Timer] " + tag + " <- this progress run time:" + (now - startTime) + "ms";
+            startTime=0;
+            return s;
         }
 
     }

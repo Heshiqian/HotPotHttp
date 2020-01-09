@@ -18,11 +18,14 @@ public class HttpHelper {
         int endEnterCount=0;
         String first=null;
         ArrayList<String> headList=new ArrayList<>();
-        while (true){
+        int emptyReadCount=0;
+        while (emptyReadCount < 3){
             if (endEnterCount>=1) break;
             if (first==null){
                 //第一行
                 first = bufferedReader.readLine();
+                //如果多次读出空行，则抛弃此次请求
+                emptyReadCount++;
                 continue;
             }
             String line = bufferedReader.readLine();

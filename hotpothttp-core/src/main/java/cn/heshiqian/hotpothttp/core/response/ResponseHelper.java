@@ -453,9 +453,13 @@ public class ResponseHelper {
             cacheFilePojoPackage.setOwnObj(cacheFilePojo);
             response.addPackage(hphResponsePT,cacheFilePojoPackage);
             response.addPackages(packages);
-            response.addHeader("Content-Type", getMIME(cacheFilePojo.getSimpleFilePojo()));
+            String mime = getMIME(cacheFilePojo.getSimpleFilePojo());
+            response.addHeader("Content-Type", mime);
             response.addHeader("Server","HotPotHttp_"+Version.version);
-            response.addHeader("Connection","close");
+            if (mime.equals("image/jpeg")) {
+                response.addHeader("Connection","keep-alive");
+            }else
+                response.addHeader("Connection","close");
         }else {
             response.setStatus(404);
         }
@@ -473,12 +477,12 @@ public class ResponseHelper {
 
     public static void send(HttpSend httpSend, OutputStream outputStream) throws IOException{
         outputStream.write(httpSend.getHttp().getBytes());
+//        outputStream.write((httpSend.getHeader()+"Content-Length: 398805\r\n").getBytes());
         outputStream.write(httpSend.getHeader().getBytes());
         outputStream.write(newline);
         InputStream stream = httpSend.getStream();
         byte[] payload = httpSend.getPayload();
         if (stream!=null){
-            //写流数据
             BufferedOutputStream bos = new BufferedOutputStream(outputStream);
             BufferedInputStream bis = new BufferedInputStream(stream);
             byte[] buff=new byte[500];

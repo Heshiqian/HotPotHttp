@@ -74,7 +74,6 @@ public class HotPotHttp {
         });
         return executor;
     }
-
     public void start(){
         try {
             Log.debug("init server socket");
@@ -87,7 +86,7 @@ public class HotPotHttp {
             shutdown();
             throw new EngineInitException("start error, maybe port was bind!",e);
         }
-        //两个处理器获取一次就行了
+        System.out.println("Ok!");
         RequestFrontFactory frontProcessor = proxy.getFrontProcessor();
         ResponseBackFactory backProcessor = proxy.getBackProcessor();
         while (running){
@@ -105,8 +104,10 @@ public class HotPotHttp {
                 Log.debug(request.toString());
                 //循环request级别插件
                 Log.debug("request插件");
+                HotPotTools.Timer.startTimer();
                 proxy.thoughtRequest(request);
                 Log.debug("request插件结束");
+                Log.debug(HotPotTools.Timer.stopTimerAndGetString("request插件耗时"));
                 //开始对返回值做解析
                 String method = request.getMethod();
                 if (!method.equals("GET")){
@@ -115,12 +116,16 @@ public class HotPotHttp {
                     continue;
                 }
                 Log.debug("解析response");
+                HotPotTools.Timer.startTimer();
                 Response response = ResponseHelper.parseResponse(request);
                 Log.debug("解析response结束");
+                Log.debug(HotPotTools.Timer.stopTimerAndGetString("解析response耗时"));
                 //response级别插件
                 Log.debug("response插件");
+                HotPotTools.Timer.startTimer();
                 proxy.thoughtResponse(response);
                 Log.debug("response插件结束");
+                Log.debug(HotPotTools.Timer.stopTimerAndGetString("response插件耗时"));
                 try{
                     HttpSend httpSend;
                     httpSend = backProcessor.beforeSend(response);
